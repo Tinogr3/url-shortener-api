@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4 font-sans">
+
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-3xl border border-gray-100">
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-indigo-600 tracking-tight">🚀 Link Shortener</h1>
+            <p class="text-gray-400 mt-2">Crea enlaces cortos, códigos QR y analiza tu tráfico.</p>
+        </div>
+
+        <div class="bg-indigo-50 p-6 rounded-lg border border-indigo-100 mb-10">
+            <label class="block text-gray-700 font-bold mb-2 text-sm uppercase tracking-wide">Tu URL Larga</label>
+            <input type="url" id="longUrl" placeholder="https://ejemplo.com/mi-articulo-largo" 
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
+            
+            <label class="block text-gray-700 font-bold mb-2 text-sm uppercase tracking-wide">Personalizar (Opcional)</label>
+            <div class="flex gap-2 mb-6">
+                <span class="bg-gray-200 text-gray-500 px-4 py-3 rounded-lg font-mono border border-gray-300 flex items-center">gr3link.onrender.com/</span>
+                <input type="text" id="customAlias" placeholder="mi-link-unico" 
+                       class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
+            </div>
+
+            <button onclick="acortarUrl()" 
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                ✨ Acortar y Generar QR
+            </button>
+
+            <div id="resultado" class="mt-6 hidden animate-fade-in-down">
+                <div class="bg-white p-6 rounded-lg border border-green-200 text-center shadow-sm">
+                    <p class="text-green-600 font-bold mb-2 uppercase text-xs">¡Enlace Creado!</p>
+                    <a id="linkCorto" href="#" target="_blank" class="text-2xl font-bold text-indigo-600 underline break-all hover:text-indigo-800 transition"></a>
+                    
+                    <div class="mt-6 flex flex-col items-center">
+                        <img id="qrImage" src="" alt="Código QR" class="w-48 h-48 border-4 border-white shadow-lg rounded-lg">
+                        <p class="text-gray-400 text-xs mt-2">Escanea para probar</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="border-gray-200 my-8">
+
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                📊 Estadísticas
+            </h2>
+            
+            <div class="flex gap-2 mb-6">
+                <input type="text" id="shortIdInput" placeholder="Introduce el Código (ej: B8x9L)" 
+                       class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-500 transition shadow-sm">
+                <button onclick="cargarDatos()" 
+                        class="bg-gray-800 hover:bg-black text-white px-8 py-3 rounded-lg font-bold transition shadow-md">
+                    Ver
+                </button>
+            </div>
+
+            <div id="panelAnalytics" class="hidden">
+                
+                <div class="flex gap-4 mb-4 bg-gray-100 p-4 rounded-lg">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Año</label>
+                        <select id="selectYear" onchange="renderizarGrafica()" class="w-full bg-white border border-gray-300 rounded px-3 py-2 cursor-pointer"></select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Mes</label>
+                        <select id="selectMonth" onchange="renderizarGrafica()" class="w-full bg-white border border-gray-300 rounded px-3 py-2 cursor-pointer"></select>
+                    </div>
+                </div>
+
+                <p class="text-center text-gray-500 text-sm mb-4">
+                    Total histórico: <strong id="totalClicks" class="text-indigo-600 text-lg">0</strong> visitas
+                </p>
+
+                <div class="bg-white p-2 rounded-lg border border-gray-200 shadow-sm relative h-80 w-full">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ IMPORTANTE: REEMPLAZA ESTO CON TU URL DE RENDER SI LO SUBES
+        // Si estás en local usa: 'http://localhost:8001'
+        // Si ya desplegaste usa: 'https://tu-app.onrender.com'
+        const API_URL = 'https://gr3link.onrender.com'; 
+
+        // Variables Globales
+        let historialGlobal = [];
+        let chartInstance = null;
+        const NOMBRES_MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+        // --- 1. FUNCIÓN PARA ACORTAR ---
+        async function acortarUrl() {
+            const originalUrl = document.getElementById('longUrl').value;
+            const customAlias = document.getElementById('customAlias').value;
+            const resultadoDiv = document.getElementById('resultado');
+
+            resultadoDiv.classList.add('hidden'); // Ocultar previo
+
+            if(!originalUrl) return alert("Por favor escribe una URL");
+
+            try {
+                const response = await fetch(`${API_URL}/url`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: originalUrl, customId: customAlias })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) return alert(data.error || "Error al crear link");
+
+                // Mostrar datos
+                resultadoDiv.classList.remove('hidden');
+                const linkElement = document.getElementById('linkCorto');
+                linkElement.href = `${API_URL}/${data.id}`;
+                linkElement.innerText = `${API_URL}/${data.id}`;
+                document.getElementById('qrImage').src = data.qr;
+
+            } catch (error) {
+                console.error(error);
+                alert("Error de conexión con el servidor");
+            }
+        }
+
+        // --- 2. FUNCIÓN PARA CARGAR DATOS (BOTÓN 'VER') ---
+        async function cargarDatos() {
+            const shortId = document.getElementById('shortIdInput').value;
+            if(!shortId) return alert("Introduce un código ID");
+
+            try {
+                const response = await fetch(`${API_URL}/analytics/${shortId}`);
+                if (!response.ok) throw new Error("No encontrado");
+                
+                const data = await response.json();
+                
+                // Guardar en variable global y mostrar panel
+                historialGlobal = data.analytics || [];
+                document.getElementById('totalClicks').innerText = data.totalClicks;
+                document.getElementById('panelAnalytics').classList.remove('hidden');
+
+                // Inicializar selectores y gráfica
+                inicializarDesplegables();
+                renderizarGrafica();
+
+            } catch (error) {
+                alert("No se encontraron datos o el servidor no responde.");
+            }
+        }
+
+        // --- 3. CONFIGURAR LOS SELECTORES DE FECHA ---
+        function inicializarDesplegables() {
+            const selectYear = document.getElementById('selectYear');
+            const selectMonth = document.getElementById('selectMonth');
+            
+            // Limpiar opciones previas
+            selectYear.innerHTML = "";
+            selectMonth.innerHTML = "";
+
+            const fechaActual = new Date();
+            const anioActual = fechaActual.getFullYear();
+            
+            // Determinar año de inicio basado en el historial
+            let anioInicio = anioActual;
+            if (historialGlobal.length > 0) {
+                const primeraVisita = new Date(historialGlobal[0].timestamp);
+                anioInicio = primeraVisita.getFullYear();
+            }
+
+            // Llenar Años (Desde el actual hacia atrás hasta el inicio)
+            for (let y = anioActual; y >= anioInicio; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.innerText = y;
+                selectYear.appendChild(opt);
+            }
+
+            // Llenar Meses
+            NOMBRES_MESES.forEach((mes, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.innerText = mes;
+                if(index === fechaActual.getMonth()) opt.selected = true; // Seleccionar mes actual
+                selectMonth.appendChild(opt);
+            });
+        }
+
+        // --- 4. RENDERIZAR LA GRÁFICA (EJE X = DÍAS) ---
+        function renderizarGrafica() {
+            const year = parseInt(document.getElementById('selectYear').value);
+            const month = parseInt(document.getElementById('selectMonth').value);
+            
+            // Calcular días en ese mes (ej: 28, 30, 31)
+            const diasEnMes = new Date(year, month + 1, 0).getDate();
+
+            // Preparar Eje X (1, 2, 3 ... 31)
+            const labels = Array.from({length: diasEnMes}, (_, i) => i + 1);
+            
+            // Preparar Eje Y (Inicializar a 0)
+            const dataCounts = new Array(diasEnMes).fill(0);
+
+            // Rellenar con visitas reales
+            historialGlobal.forEach(visita => {
+                const vDate = new Date(visita.timestamp);
+                // Si coincide Año y Mes
+                if(vDate.getFullYear() === year && vDate.getMonth() === month) {
+                    const dia = vDate.getDate();
+                    dataCounts[dia - 1]++; // Sumar al índice correspondiente
+                }
+            });
+
+            // Dibujar con Chart.js
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            
+            if (chartInstance) chartInstance.destroy(); // Limpiar anterior
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Visitas',
+                        data: dataCounts,
+                        borderColor: '#4F46E5', // Indigo 600
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)', // Fondo transparente
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#4F46E5',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4 // Curva suave
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (ctx) => `Día ${ctx[0].label} de ${NOMBRES_MESES[month]}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { stepSize: 1 } 
+                        },
+                        x: {
+                            grid: { display: false } // Ocultar rejilla vertical para limpieza
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
