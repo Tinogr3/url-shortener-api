@@ -86,23 +86,20 @@
     </div>
 
     <script>
-        // ⚠️ IMPORTANTE: REEMPLAZA ESTO CON TU URL DE RENDER SI LO SUBES
-        // Si estás en local usa: 'http://localhost:8001'
-        // Si ya desplegaste usa: 'https://tu-app.onrender.com'
         const API_URL = 'https://gr3link.onrender.com'; 
 
-        // Variables Globales
+    
         let historialGlobal = [];
         let chartInstance = null;
         const NOMBRES_MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-        // --- 1. FUNCIÓN PARA ACORTAR ---
+        
         async function acortarUrl() {
             const originalUrl = document.getElementById('longUrl').value;
             const customAlias = document.getElementById('customAlias').value;
             const resultadoDiv = document.getElementById('resultado');
 
-            resultadoDiv.classList.add('hidden'); // Ocultar previo
+            resultadoDiv.classList.add('hidden'); 
 
             if(!originalUrl) return alert("Por favor escribe una URL");
 
@@ -117,7 +114,7 @@
 
                 if (!response.ok) return alert(data.error || "Error al crear link");
 
-                // Mostrar datos
+              
                 resultadoDiv.classList.remove('hidden');
                 const linkElement = document.getElementById('linkCorto');
                 linkElement.href = `${API_URL}/${data.id}`;
@@ -130,7 +127,7 @@
             }
         }
 
-        // --- 2. FUNCIÓN PARA CARGAR DATOS (BOTÓN 'VER') ---
+    
         async function cargarDatos() {
             const shortId = document.getElementById('shortIdInput').value;
             if(!shortId) return alert("Introduce un código ID");
@@ -141,12 +138,12 @@
                 
                 const data = await response.json();
                 
-                // Guardar en variable global y mostrar panel
+            
                 historialGlobal = data.analytics || [];
                 document.getElementById('totalClicks').innerText = data.totalClicks;
                 document.getElementById('panelAnalytics').classList.remove('hidden');
 
-                // Inicializar selectores y gráfica
+              
                 inicializarDesplegables();
                 renderizarGrafica();
 
@@ -155,26 +152,26 @@
             }
         }
 
-        // --- 3. CONFIGURAR LOS SELECTORES DE FECHA ---
+       
         function inicializarDesplegables() {
             const selectYear = document.getElementById('selectYear');
             const selectMonth = document.getElementById('selectMonth');
             
-            // Limpiar opciones previas
+          
             selectYear.innerHTML = "";
             selectMonth.innerHTML = "";
 
             const fechaActual = new Date();
             const anioActual = fechaActual.getFullYear();
             
-            // Determinar año de inicio basado en el historial
+         
             let anioInicio = anioActual;
             if (historialGlobal.length > 0) {
                 const primeraVisita = new Date(historialGlobal[0].timestamp);
                 anioInicio = primeraVisita.getFullYear();
             }
 
-            // Llenar Años (Desde el actual hacia atrás hasta el inicio)
+         
             for (let y = anioActual; y >= anioInicio; y--) {
                 const opt = document.createElement('option');
                 opt.value = y;
@@ -182,44 +179,44 @@
                 selectYear.appendChild(opt);
             }
 
-            // Llenar Meses
+         
             NOMBRES_MESES.forEach((mes, index) => {
                 const opt = document.createElement('option');
                 opt.value = index;
                 opt.innerText = mes;
-                if(index === fechaActual.getMonth()) opt.selected = true; // Seleccionar mes actual
+                if(index === fechaActual.getMonth()) opt.selected = true; 
                 selectMonth.appendChild(opt);
             });
         }
 
-        // --- 4. RENDERIZAR LA GRÁFICA (EJE X = DÍAS) ---
+ 
         function renderizarGrafica() {
             const year = parseInt(document.getElementById('selectYear').value);
             const month = parseInt(document.getElementById('selectMonth').value);
             
-            // Calcular días en ese mes (ej: 28, 30, 31)
+         
             const diasEnMes = new Date(year, month + 1, 0).getDate();
 
-            // Preparar Eje X (1, 2, 3 ... 31)
+          
             const labels = Array.from({length: diasEnMes}, (_, i) => i + 1);
             
-            // Preparar Eje Y (Inicializar a 0)
+    
             const dataCounts = new Array(diasEnMes).fill(0);
 
-            // Rellenar con visitas reales
+    
             historialGlobal.forEach(visita => {
                 const vDate = new Date(visita.timestamp);
-                // Si coincide Año y Mes
+                
                 if(vDate.getFullYear() === year && vDate.getMonth() === month) {
                     const dia = vDate.getDate();
-                    dataCounts[dia - 1]++; // Sumar al índice correspondiente
+                    dataCounts[dia - 1]++;
                 }
             });
 
-            // Dibujar con Chart.js
+        
             const ctx = document.getElementById('dailyChart').getContext('2d');
             
-            if (chartInstance) chartInstance.destroy(); // Limpiar anterior
+            if (chartInstance) chartInstance.destroy(); 
 
             chartInstance = new Chart(ctx, {
                 type: 'line',
@@ -228,15 +225,15 @@
                     datasets: [{
                         label: 'Visitas',
                         data: dataCounts,
-                        borderColor: '#4F46E5', // Indigo 600
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)', // Fondo transparente
+                        borderColor: '#4F46E5', 
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)', 
                         borderWidth: 3,
                         pointBackgroundColor: '#fff',
                         pointBorderColor: '#4F46E5',
                         pointRadius: 4,
                         pointHoverRadius: 6,
                         fill: true,
-                        tension: 0.4 // Curva suave
+                        tension: 0.4 
                     }]
                 },
                 options: {
@@ -256,7 +253,7 @@
                             ticks: { stepSize: 1 } 
                         },
                         x: {
-                            grid: { display: false } // Ocultar rejilla vertical para limpieza
+                            grid: { display: false }
                         }
                     }
                 }
